@@ -25,6 +25,52 @@ sudo qemu-img create -b /var/lib/libvirt/images/CentOS-8-GenericCloud-8.4.2105-2
 
 sudo virt-customize  -a /var/lib/libvirt/images/ocp_pxe_jumphost.qcow2   --run-command 'xfs_growfs /' --selinux-relabel
 
+  cat > ocp_pxe_jumphost_cloud_init.cfg <<END_OF_SCRIPT
+#cloud-config
+hostname: bastion
+fqdn: bastion.ocp.pxe.com
+manage_etc_hosts: false
+users:
+  - name: lab
+    groups: wheel
+    lock_passwd: false
+    shell: /bin/bash
+    home: /home/lab
+    ssh_pwauth: true
+    ssh-authorized-keys:
+      - 'ssh-key'
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+chpasswd:
+  list: |
+     lab:contrail123
+  expire: False
+write_files:
+  - path:  /etc/sudoers.d/lab
+    permissions: '0440'
+    content: |
+         lab ALL=(root) NOPASSWD:ALL
+  - path:  /etc/sysconfig/network-scripts/ifcfg-eth0
+    permissions: '0644'
+    content: |
+         TYPE=Ethernet
+         PROXY_METHOD=none
+         BROWSER_ONLY=no
+         BOOTPROTO=none
+         IPV4_FAILURE_FATAL=no
+         NAME=eth0
+         DEVICE=eth0
+         ONBOOT=yes
+         IPADDR=192.168.24.13
+         NETMASK=255.255.255.0
+         GATEWAY=192.168.24.1
+         DNS1=1.1.1.1
+         PEERDNS=yes
+runcmd:
+ - [sudo, ifup, eth0]
+ - [sudo, sed ,-i, 's/PasswordAuthentication no/PasswordAuthentication yes/g', /etc/ssh/sshd_config]
+ - [sudo, systemctl, restart, sshd]
+END_OF_SCRIPT
+
 cloud-localds -v  ocp_pxe_jumphost_cloud_init.img ocp_pxe_jumphost_cloud_init.cfg
 
 
