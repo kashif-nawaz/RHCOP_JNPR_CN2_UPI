@@ -102,15 +102,6 @@ virt-install --name ocp-bastion \
   vim ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg
   sudo cp ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg /etc/haproxy/
   ```
-  ### Preparing NFS Server 
-
-  ```
-  sudo mkdir -p /shares/registry
-  sudo chown -R nobody:nobody /shares/registry
-  sudo chmod -R 777 /shares/registry
-  sudo echo "/shares/registry  192.168.24.0/24(rw,sync,root_squash,no_subtree_check,no_wdelay)" > /etc/exports
-  sudo exportfs -rv
-  ```
   ### Adding Firewall Rules and Setting SELinux premission
 
   ```
@@ -129,8 +120,6 @@ virt-install --name ocp-bastion \
   sudo systemctl enable  tftp.service --now
   sudo systemctl enable named --now 
   sudo systemctl enable  haproxy --now
-  sudo systemctl enable nfs-server rpcbind 
-  sudo systemctl start nfs-server rpcbind nfs-mountd
   ```
   ### Preparing Openshift Installation Files 
   * Make sure pull-secret file is copied in Jumphost ~/ directory
@@ -302,7 +291,7 @@ EOF
   Accept-Ranges: bytes
   Content-Length: 1103563776
   ```
-  ### Create Bootstrap and Controller VMs
+  ### Kick Off Openshift Installation 
   * Bootstrap VM
   ```
   sudo virt-install -n bootstrap.ocp.pxe.com \
@@ -357,7 +346,14 @@ EOF
    --boot network,hd,menu=on \
    --network bridge=br-ctrplane,mac=52:54:00:ea:8b:9d
   ```
-  * Monitoring Bootstraping process from Jumphost 
+  * My worker nodes are physical servers (Dell R720).
+  * PXE boot is already enabled on Control Plane NIC and underlay network ports are  configured in access mode.
+  * I am using VNC Viewer to Access Dell IDRAC Console for worker nodes [Reference](https://dl.dell.com/manuals/all-products/esuprt_software_int/esuprt_software_ent_systems_mgmt/openmanage-mobile-v33_White-Papers1_en-us.pdf)
+  * ipmitool can be to used to turn on/ off the chassis 
+  ```
+  ipmitool -I lanplus -H $ipmi-ip -U $ipmi-user -P $ipmi-password  chassis power off
+  ```
+  * Monitoring Bootstraping process from Jumphost.
 
   ```
   openshift-install --dir ~/ocp-install wait-for bootstrap-complete --log-level=debug
@@ -389,8 +385,26 @@ EOF
   Mon 06 00:01:56 bootstrap.ocp.lab.com bootkube.sh[12661]: bootkube.service complete
   Mon 06 00:01:56 bootstrap.ocp.lab.com systemd[1]: bootkube.service: Succeeded.
   ```
-  * Remove Bootstrap from haproxy config
+  ### Post Deployment Operations 
+  
+  * Setup oc and kubectl clients
 
+  ```
+  export KUBECONFIG=~/ocp-install/auth/kubeconfig
+  mkdir ~/.kube
+  cp ~/ocp-install/auth/kubeconfig  ~/.kube/config
+  oc get nodes 
+  ```
+  * oc get nodes might not show you all the master and worker nodes. 
+  * Get Certificate Signing Requests and Approve it
+  ```
+  oc get csr
+  oc get csr -o go-template='{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | xargs oc adm certificate approve
+  ```
+  * Wait for Certificate siging requests to be approved. 
+  * Now oc get nodes should return all the nodes and if some node is "Notready" state then give it sometime. 
+
+  * Remove Bootstrap from haproxy config
   ```
   sudo cat  /etc/haproxy/haproxy.cfg | grep boot
   server bootstrap 192.168.24.200:6443 check
@@ -400,5 +414,42 @@ EOF
   sudo cat /etc/haproxy/haproxy.cfg | grep boot
   sudo systemctl restart  haproxy
   ```
+  ### Configuring NFS Server to Host Openshift Image registry
+  * By default Openshift installation removes Image Registry operators in User Provisioned Infrastructre deployment because no stroage pool is available and deployment would be stopped if Image Registry operators is not removed
+  *  Preparing NFS Server 
+  ```
+  sudo systemctl enable nfs-server rpcbind 
+  sudo systemctl start nfs-server rpcbind nfs-mountd
+  sudo mkdir -p /shares/registry
+  sudo chown -R nobody:nobody /shares/registry
+  sudo chmod -R 777 /shares/registry
+  sudo echo "/shares/registry  192.168.24.0/24(rw,sync,root_squash,no_subtree_check,no_wdelay)" > /etc/exports
+  sudo exportfs -rv
+  sudo firewall-cmd --add-service={mountd,rpc-bind,nfs} --permanent
+  sudo firewall-cmd --reload
+  ```
+  * Edit image.registry.operator config 
 
+  ```
+  oc edit configs.imageregistry.operator.openshift.io
+  managementState: Managed
+  storage:
+  pvc:
+    claim: # no need to mention claim's name 
+  ```
+  * Image registry PVC (presistent volume claim) will be created but in pending state as there is no underlay presistent volume available.
+  ```
+  oc get pvc -n openshift-image-registry
+    NAME                     STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+    image-registry-storage   Pending                                                     9h
+  ```
+  * Create PV, change NFS server IP in ~/RHCOP_JNPR_CN2_UPI/image-registry-pv.yaml as per your setup 
+  ```
+  cp ~/RHCOP_JNPR_CN2_UPI/image-registry-pv.yaml ~/ocp-install/image-registry-pv.yaml
+  oc create -f ~/ocp-install/image-registry-pv.yaml
+
+  oc get pvc -n openshift-image-registry
+    NAME                     STATUS   VOLUME        CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+    image-registry-storage   Bound    registry-pv   100Gi      RWX                           9h 
+  ```
 
