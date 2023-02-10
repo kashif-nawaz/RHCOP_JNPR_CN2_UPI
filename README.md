@@ -1,49 +1,70 @@
-# RHCOP_JNPR_CN2_UPI
+# RHOCP_JNPR_CN2_UPI
 
+## Problem Statement 
+* Redhat Openshift is getting lots of attractions in 5G RAN market due to its feature richness.
+* 5G RAN VDU (virtual distribution unit,  Far Edge) and VCU (virtual control unit, Edge DC) are the target places where Openshift is getting deployed besides region data center where 5G core components are placed. 
+* So for the Juniper Contrail Classic is only deployed in regional data centers alogwith Openstack to provide overlay networking for 5G core, IMS or other virtual functions limited to regional data centers.
+* As Cloud Native 5G RAN is getting a lot of attraction for Openshift so it has opened new marketplace for cloud native products (JCNR  or CN2).
+* So far, installation method for CN2 covers Assited Installer where target machines have to be booted manually using Red Hat CoreOS ISO image.
+* This wiki focuses on User Provisined Infrastrure deployment for Red Hat Open Shift where target  machines will get mine on pxe boot and from that menu we can install desired role in the machine.
+* 
 ## Reference Documents
 * [Redhat Guide](https://docs.openshift.com/container-platform/4.12/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html)
 ## Get PullSecret
 * Open the [URL](https://console.redhat.com/openshift/install/metal/user-provisioned) by logging in with your Redhat account.
 * Only copy/ get "pull secret" as required images/ packages will be downloaded by a scripit download_ocp_images.sh in later step.
-## Get this Git Repo
-```
-git clone https://github.com/kashif-nawaz/RHCOP_JNPR_CN2_UPI
-```
+
 ## Jumphost Bringup
 ```
 
 wget 'https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.4.2105-20210603.0.x86_64.qcow2'
-sudo qemu-img create -b /var/lib/libvirt/images/CentOS-8-GenericCloud-8.4.2105-20210603.0.x86_64.qcow2  -f qcow2 -F qcow2 /var/lib/libvirt/images/bastion.qcow2 200G
+sudo qemu-img create -b /var/lib/libvirt/images/CentOS-8-GenericCloud-8.4.2105-20210603.0.x86_64.qcow2  -f qcow2 -F qcow2 /var/lib/libvirt/images/ocp_pxe_jumphost.qcow2 200G
 
-sudo virt-customize  -a /var/lib/libvirt/images/bastion.qcow2   --run-command 'xfs_growfs /' --selinux-relabel
+sudo virt-customize  -a /var/lib/libvirt/images/ocp_pxe_jumphost.qcow2   --run-command 'xfs_growfs /' --selinux-relabel
 
-cloud-localds -v  bastion-cloud-init.img bastion-cloud-init.cfg
+cloud-localds -v  ocp_pxe_jumphost_cloud_init.img ocp_pxe_jumphost_cloud_init.cfg
 
 
-virt-install --name ocp-bastion \
+virt-install --name ocp_pxe_jumphost \
   --virt-type kvm --memory 8192  --vcpus 8 \
   --boot hd,menu=on \
-  --disk path=bastion-cloud-init.img,device=cdrom \
-  --disk path=/var/lib/libvirt/images/bastion.qcow2,device=disk \
+  --disk path=ocp_pxe_jumphost_cloud_init.img,device=cdrom \
+  --disk path=/var/lib/libvirt/images/ocp_pxe_jumphost.qcow2,device=disk \
   --os-type=Linux \
   --os-variant=rhel8.0 \
   --network bridge:br-ctrplane \
-  --network bridge:br-external \
   --graphics vnc,listen=0.0.0.0 --noautoconsole
+
   ```
   * Execute jmphost_setup.sh scripit to install required packages on Jumphost 
 
   ```
-  cd ~/RHCOP_JNPR_CN2_UPI
-  ./jmphost_setup.sh
+  cat <<EOF> jmphost_setup.sh
+  sudo dnf --disablerepo '*' --enablerepo=extras swap centos-linux-repos centos-stream-repos -y
+  sudo dnf distro-sync -y
+  sudo dnf -y install epel-release
+  sudo dnf -y install ipmitool git vim wget curl bash-completion  nfs-utils  tree tar libselinux-python3 firewalld
+  sudo reboot
+  EOF
+  chmod +x jmphost_setup.sh
   ```
 
   * Download OCP Packages/ images 
 
   ```
-  cd ~/RHCOP_JNPR_CN2_UPI
+  cat <<EOF> download_ocp_images.sh
+  curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-live-rootfs.x86_64.img --output rhcos-live-rootfs.x86_64.img
+  curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-installer-kernel-x86_64 --output rhcos-installer-kernel-x86_64
+  curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-installer-initramfs.x86_64.img --output rhcos-installer-initramfs.x86_64.img
+  curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-install-linux.tar.gz --output openshift-install-linux.tar.gz
+  curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz --output openshift-client-linux.tar.gz
+  EOF
   chmod +x download_ocp_images.sh
   ./download_ocp_images.sh
+  ```
+  * Get this Git Repo
+  ```
+   git clone https://github.com/kashif-nawaz/RHCOP_JNPR_CN2_UPI
   ```
   * Prepare DHCP Server
   * Do changes in ~/RHCOP_JNPR_CN2_UPI/dhcpd.conf as per your setup
