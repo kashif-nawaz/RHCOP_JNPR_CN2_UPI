@@ -75,7 +75,8 @@ virt-install --name ocp-bastion \
   ```
   sudo mkdir -p /var/www/html/rhcos
   sudo mkdir -p /var/www/html/ignition
-  sudo mv ~/rhcos-live-rootfs.x86_64.img /var/www/html/rhcos
+  sudo mv ~/rhcos-live-rootfs.x86_64.img /var/www/html/rhcos/rhcos-live-rootfs
+  sudo restorecon -RFv /var/www/html/rhcos/
   sudo sed -i 's/Listen 80/Listen 0.0.0.0:8080/' /etc/httpd/conf/httpd.conf
   ```
   ### Prepare tftp Server
@@ -325,7 +326,7 @@ EOF
   :1 
   ```
   * PXE boot and Select "Bootstrap" from the PXE Boot Menue 
-  ![BootStrap PXE](./images/pxe-boot)
+  ![BootStrap PXE](./images/pxe-bios-boot.jpeg)
   * Once kernel and initramfs images are downloaded from tftp server , boot server will reboot.
   * During reboot , from PXE boot menu select "Local Boot"
 
@@ -387,6 +388,17 @@ EOF
   ssh core@192.168.24.200 'journalctl -b -f -u release-image.service -u bootkube.service'
   Mon 06 00:01:56 bootstrap.ocp.lab.com bootkube.sh[12661]: bootkube.service complete
   Mon 06 00:01:56 bootstrap.ocp.lab.com systemd[1]: bootkube.service: Succeeded.
+  ```
+  * Remove Bootstrap from haproxy config
+
+  ```
+  sudo cat  /etc/haproxy/haproxy.cfg | grep boot
+  server bootstrap 192.168.24.200:6443 check
+  server bootstrap 192.168.24.200:22623 check
+  sudo sed -i -e 's/server bootstrap 192.168.24.200:6443 check//' /etc/haproxy/haproxy.cfg
+  sudo sed -i -e 's/server bootstrap 192.168.24.200:22623 check//' /etc/haproxy/haproxy.cfg
+  sudo cat /etc/haproxy/haproxy.cfg | grep boot
+  sudo systemctl restart  haproxy
   ```
 
 
