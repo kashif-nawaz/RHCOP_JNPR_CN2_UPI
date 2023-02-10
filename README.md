@@ -3,9 +3,9 @@
 ## Problem Statement 
 * Redhat Openshift is getting lots of attractions in 5G RAN market due to its feature richness.
 * 5G RAN VDU (virtual distribution unit,  Far Edge) and VCU (virtual control unit, Edge DC) are the target places where Openshift is getting deployed besides region data center where 5G core components are placed.
-* Courtsy to [Redat](https://www.redhat.com/architect/ran-radio-access-network-definitions) for these design diagrams 
-![RAN Design Option1](./images/option1.)
-![RAN Design Option2](./images/option2) 
+* courtesy to [Redat] (https://www.redhat.com/architect/ran-radio-access-network-definitions) for these design diagrams.
+* ![RAN Design Option1](./images/option1.png)
+* ![RAN Design Option2](./images/option2.png) 
 
 * So for the Juniper Contrail Classic is only deployed in regional data centers alogwith Openstack to provide overlay networking for 5G core, IMS or other virtual functions limited to regional data centers.
 * As Cloud Native 5G RAN is getting a lot of attraction for Openshift so it has opened new marketplace for cloud native products (JCNR  or CN2).
