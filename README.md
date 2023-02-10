@@ -3,7 +3,7 @@
 ## Problem Statement 
 * Redhat Openshift is getting lots of attractions in 5G RAN market due to its feature richness.
 * 5G RAN VDU (virtual distribution unit,  Far Edge) and VCU (virtual control unit, Edge DC) are the target places where Openshift is getting deployed besides region data center where 5G core components are placed.
-* courtesy to [Redat] (https://www.redhat.com/architect/ran-radio-access-network-definitions) for these design diagrams.
+* courtesy to [Redat](https://www.redhat.com/architect/ran-radio-access-network-definitions) for these design diagrams.
 * ![RAN Design Option1](./images/option1.png)
 * ![RAN Design Option2](./images/option2.png) 
 
