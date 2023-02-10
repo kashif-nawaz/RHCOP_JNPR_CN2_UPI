@@ -8,13 +8,14 @@
 * So for the Juniper Contrail Classic is only deployed in regional data centers alogwith Openstack to provide overlay networking for 5G core, IMS or other virtual functions limited to regional data centers.
 * As Cloud Native 5G RAN is getting a lot of attraction for Openshift so it has opened new marketplace for Juniper Networks cloud native products (JCNR  or CN2).
 * So far, installation method for CN2 covers Assited Installer where target machines have to be booted manually using Red Hat CoreOS ISO image.
-* This wiki focuses on User Provisined Infrastrure deployment for Red Hat Open Shift where target  machines will get mine on pxe boot and from that menu we can install desired role in the machine.
+* This document  focuses on User Provisined Infrastrure deployment for Red Hat Open Shift where target  machines will get mine on pxe boot and from that menu we can install desired role in the machine.
 
 ## Reference Documents
 * [Redhat Guide](https://docs.openshift.com/container-platform/4.12/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html)
 ## Get PullSecret
 * Open the [URL](https://console.redhat.com/openshift/install/metal/user-provisioned) by logging in with your Redhat account.
 * Only copy/ get "pull secret" as required images/ packages will be downloaded by a scripit download_ocp_images.sh in later step.
+* Images mirror repository for all  versions of [OpenShift](https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/)
 
 ## Jumphost Bringup
 ```
@@ -38,20 +39,20 @@ virt-install --name ocp_pxe_jumphost \
   --graphics vnc,listen=0.0.0.0 --noautoconsole
 
   ```
-  * Execute jmphost_setup.sh scripit to install required packages on Jumphost 
+  * Execute jmphost_setup.sh script to install required packages on Jumphost.
 
   ```
   cat <<EOF> jmphost_setup.sh
   sudo dnf --disablerepo '*' --enablerepo=extras swap centos-linux-repos centos-stream-repos -y
   sudo dnf distro-sync -y
   sudo dnf -y install epel-release
-  sudo dnf -y install ipmitool git vim wget curl bash-completion  nfs-utils  tree tar libselinux-python3 firewalld
+  sudo dnf -y install ipmitool git dhcp-server tftp-server syslinux  httpd haproxy  bind bind-utils  vim wget curl bash-completion  nfs-utils  tree tar libselinux-python3 firewalld
   sudo reboot
   EOF
   chmod +x jmphost_setup.sh
   ```
 
-  * Download OCP Packages/ images 
+  * Download Openshift packages/ images 
 
   ```
   cat <<EOF> download_ocp_images.sh
@@ -93,7 +94,7 @@ virt-install --name ocp_pxe_jumphost \
   sudo systemctl restart NetworkManager
   ```
 
-  * Preparing Webserver 
+  * Preparing Web Server 
   
   ```
   sudo mkdir -p /var/www/html/rhcos
@@ -102,15 +103,15 @@ virt-install --name ocp_pxe_jumphost \
   sudo restorecon -RFv /var/www/html/rhcos/
   sudo sed -i 's/Listen 80/Listen 0.0.0.0:8080/' /etc/httpd/conf/httpd.conf
   ```
-  ### Prepare tftp Server
-  * Move kernel and initrmfs images downloaded in one of above step to /var/lib/tftpboot/
+  ### Prepare TFTP Server
+  * Move kernel and initrmfs images, downloaded in one of above step to /var/lib/tftpboot/
   ```
   sudo mkdir -p /var/lib/tftpboot/rhcos
   sudo mv ~/rhcos-live-initramfs.x86_64.img /var/lib/tftpboot/rhcos/initramfs.img
   sudo mv ~/rhcos-live-kernel-x86_64 /var/lib/tftpboot/rhcos/kernel
   sudo restorecon -RFv  /var/lib/tftpboot/rhcos
   ```
-  * Make changes in "default" file available with this repo as per your enviornment 
+  * Make changes in "default" file available with this repo as per your environment. 
   ```
   vim ~/RHCOP_JNPR_CN2_UPI/default
   :wq 
@@ -125,7 +126,7 @@ virt-install --name ocp_pxe_jumphost \
   vim ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg
   sudo cp ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg /etc/haproxy/
   ```
-  ### Adding Firewall Rules and Setting SELinux premission
+  ### Adding Firewall Rules and Setting SELinux Permissions
 
   ```
   sudo firewall-cmd --add-port=8080/tcp --permanent
@@ -157,7 +158,7 @@ virt-install --name ocp_pxe_jumphost \
   ssh-keygen 
   mkdir ~/ocp-install
   ```
-  * Prep base install file , change IP settings if required (or leave it as it is)
+  * Prepare base install file , change IP settings if required (or leave it as it is)
 
 ```
 cat <<EOF > ocp-install-base-config.yaml
@@ -271,6 +272,10 @@ EOF
 
   dig +noall +answer 192.168.24.13 -x 192.168.24.200
   200.24.168.192.in-addr.arpa. 604800 IN	PTR	bootstrap.ocp.pxe.com.
+
+  dig +noall +answer 192.168.24.13 -x 192.168.24.13
+  13.24.168.192.in-addr.arpa. 604800 IN	PTR	api.ocp.pxe.com.
+  13.24.168.192.in-addr.arpa. 604800 IN	PTR	api-int.ocp.pxe.com.
   ```
   * Verify web server 
 
