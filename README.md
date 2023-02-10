@@ -1,5 +1,4 @@
 # RHOCP_JNPR_CN2_UPI
-
 ## Problem Statement 
 * Redhat Openshift is getting lots of attractions in 5G RAN market due to its feature richness.
 * 5G RAN VDU (virtual distribution unit,  Far Edge) and VCU (virtual control unit, Edge DC) are the target places where Openshift is getting deployed besides region data center where 5G core components are placed.
