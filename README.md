@@ -244,6 +244,7 @@ sshKey: '$(< ~/.ssh/id_rsa.pub)'
 EOF
 ```
   * Preparing OCP  manifests files 
+  * File name in installation directory must be [install-config.yaml](https://access.redhat.com/solutions/4514661)
   ```
   mkdir ~/ocp-install
   cp ~/ocp-install-base-config.yaml ~/ocp-install/install-config.yaml
