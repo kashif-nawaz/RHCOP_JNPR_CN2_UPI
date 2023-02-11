@@ -137,7 +137,7 @@ virt-install --name ocp_pxe_jumphost \
 
   ```
   sudo cp ~/RHCOP_JNPR_CN2_UPI/named.conf  /etc
-  sud cp  ~/RHCOP_JNPR_CN2_UPI/zone.db /var/named/
+  sud cp  ~/RHCOP_JNPR_CN2_UPI/reverse.db /var/named/
   sudo ~/RHCOP_JNPR_CN2_UPI/zonefile.db /var/named/
   ```
   * Update DNS config on primary interface of Jumphost 
@@ -167,6 +167,7 @@ virt-install --name ocp_pxe_jumphost \
   ```
   * Make changes in "default" file available with this repo as per your environment. 
   ```
+
   vim ~/RHCOP_JNPR_CN2_UPI/default
   :wq 
   sudo mkdir -p /var/lib/tftpboot/pxelinux.cfg/
@@ -196,6 +197,7 @@ virt-install --name ocp_pxe_jumphost \
   ```
   sudo systemctl enable httpd --now
   sudo systemctl enable  tftp.service --now
+  sudo cp -rvf /usr/share/syslinux/* /var/lib/tftpboot
   sudo systemctl enable named --now 
   sudo systemctl enable  haproxy --now
   ```
@@ -243,7 +245,8 @@ EOF
 ```
   * Preparing OCP  manifests files 
   ```
-  cp ~/ocp-install-base-config.yaml ~/ocp-install
+  mkdir ~/ocp-install
+  cp ~/ocp-install-base-config.yaml ~/ocp-install/install-config.yaml
   cd ocp-install/
   openshift-install create manifests
   INFO Consuming Install Config from target directory
