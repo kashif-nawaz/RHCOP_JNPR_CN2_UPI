@@ -17,6 +17,7 @@
 * [Redhat Guide](https://docs.openshift.com/container-platform/4.12/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html)
 ## Lab Topology
 * ![Topology](./images/topology.png)
+* Bastion VM will host (dhcp, named, tftp ,http, haproxy) services. 
 ## Get PullSecret
 * Open the [URL](https://console.redhat.com/openshift/install/metal/user-provisioned) by logging in with your Redhat account.
 * Only copy/ get "pull secret" as required images/ packages will be downloaded by a scripit download_ocp_images.sh in later step.
