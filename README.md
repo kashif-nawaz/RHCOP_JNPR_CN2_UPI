@@ -1,4 +1,4 @@
-# RHOCP_JNPR_CN2_UPI
+# Redhat Openshift_Juniper_CN2 Installation over User Provisioned Infrastructure
 ## Problem Statement 
 * Redhat Openshift is getting lots of attractions in 5G RAN market due to its feature richness.
 * 5G RAN VDU (virtual distribution unit,  Far Edge) and VCU (virtual control unit, Edge DC) are the target places where Openshift is getting deployed besides region data center where 5G core components are placed.
@@ -7,8 +7,11 @@
 * ![RAN Design Option2](./images/option2.png) 
 * So for the Juniper Contrail Classic is only deployed in regional data centers alogwith Openstack to provide overlay networking for 5G core, IMS or other virtual functions limited to regional data centers.
 * As Cloud Native 5G RAN is getting a lot of attraction for Openshift so it has opened new marketplace for Juniper Networks cloud native products (JCNR  or CN2).
-* So far, installation method for CN2 covers Assited Installer where target machines have to be booted manually using Red Hat CoreOS ISO image.
-* This document  focuses on User Provisined Infrastrure deployment for Red Hat Open Shift where target  machines will get mine on pxe boot and from that menu we can install desired role in the machine.
+* So far, installation method for CN2 covers Assited Installer where target machines have to be booted manually using Red Hat CoreOS ISO image. 
+* The Openshift assisted installer is also hosted on Redhat Cloud so it means internet connectivity is required for the target nodes.
+* In real life deployment scenarios internet access is limited or restricted in edge / telco cloud site due to security reasons.  
+* This document  focuses on User Provisined Infrastrure deployment for Red Hat Open Shift where target  machines will get a menu from tftp  server via pxe boot and from that menu we can install desired role in the machine.
+* Local registry to host Red Hat Open Shift Container images and CN2 Contrainer images will also be built in the next phase to make it truly 'disconnected installation'.
 
 ## Reference Documents
 * [Redhat Guide](https://docs.openshift.com/container-platform/4.12/installing/installing_bare_metal/installing-restricted-networks-bare-metal.html)
