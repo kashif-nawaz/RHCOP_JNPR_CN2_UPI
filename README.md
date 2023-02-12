@@ -21,9 +21,7 @@
 * Bastion VM will host (dhcp, named, tftp ,http, haproxy) services. 
 ## Get PullSecret
 * Open the [URL](https://console.redhat.com/openshift/install/metal/user-provisioned) by logging in with your Redhat account.
-* Only copy/ get "pull secret" as required images/ packages will be downloaded by a scripit download_ocp_images.sh in later step.
-* Images mirror repository for all  versions of [OpenShift](https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/)
-
+* Only copy/ get "pull secret" as required images/ packages will be in a later step.
 ## Jumphost Bringup
 ```
 
@@ -106,16 +104,26 @@ virt-install --name ocp_pxe_jumphost \
   ./jmphost_setup.sh
   ```
 
-  * Download Openshift packages/ images 
-
+  ## Download Openshift Images 
+  * Download following images from the [ULR](https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/) as per required version. 
+  * kernel: rhcos-<version>-live-kernel-<architecture>
+  * initramfs: rhcos-<version>-live-initramfs.<architecture>.img
+  * rootfs: rhcos-<version>-live-rootfs.<architecture>.img
+  * coreos: rhcos-<version>-x86_64-metal.x86_64.raw.gz
   ```
   cat <<EOF> download_ocp_images.sh
   curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-live-rootfs.x86_64.img --output rhcos-live-rootfs.x86_64.img
   curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-installer-kernel-x86_64 --output rhcos-installer-kernel-x86_64
   curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-installer-initramfs.x86_64.img --output rhcos-installer-initramfs.x86_64.img
+  curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-4.12.2-x86_64-metal.x86_64.raw.gz --output rhcos-4.12.2-x86_64-metal.x86_64.raw.gz
+  EOF
+  ``` 
+  ## Download Installer and CLI Packages
+  * Download openshift-installer and openhift-client (CLI) packages from the [URL](https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/) as per required version. 
+  ```
   curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-install-linux.tar.gz --output openshift-install-linux.tar.gz
   curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz --output openshift-client-linux.tar.gz
-  EOF
+  ```
   chmod +x download_ocp_images.sh
   ./download_ocp_images.sh
   ```
@@ -154,6 +162,7 @@ virt-install --name ocp_pxe_jumphost \
   sudo mkdir -p /var/www/html/rhcos
   sudo mkdir -p /var/www/html/ignition
   sudo mv ~/rhcos-live-rootfs.x86_64.img /var/www/html/rhcos/rhcos-live-rootfs
+  sudo mv ~/rhcos-4.12.2-x86_64-metal.x86_64.raw.gz /var/www/html/rhcos/rhcos-4.12.2-x86_64-metal.x86_64.raw.gz
   sudo restorecon -RFv /var/www/html/rhcos/
   sudo sed -i 's/Listen 80/Listen 0.0.0.0:8080/' /etc/httpd/conf/httpd.conf
   ```
@@ -172,6 +181,7 @@ virt-install --name ocp_pxe_jumphost \
   :wq 
   sudo mkdir -p /var/lib/tftpboot/pxelinux.cfg/
   sudo mv ~/RHCOP_JNPR_CN2_UPI/default /var/lib/tftpboot/pxelinux.cfg/
+  sudo cp -rvf /usr/share/syslinux/* /var/lib/tftpboot
  
   ```
   ### Prepare haproxy Server
@@ -376,6 +386,15 @@ EOF
   ETag: "41c70c00-5f4394e4fca8a"
   Accept-Ranges: bytes
   Content-Length: 1103563776
+
+  curl -I http://192.168.24.13:8080/rhcos/coreos
+  HTTP/1.1 200 OK
+  Date: Sat, 11 Feb 2023 19:14:39 GMT
+  Server: Apache/2.4.37 (centos)
+  Last-Modified: Sat, 11 Feb 2023 16:58:49 GMT
+  ETag: "48400000-5f46f8724b249"
+  Accept-Ranges: bytes
+  Content-Length: 1212153856
   ```
   ### Kick Off Openshift Installation 
   * Bootstrap VM
@@ -391,6 +410,7 @@ EOF
   --graphics vnc,listen=0.0.0.0 --noautoconsole \
   --boot network,hd,menu=on \
   --network bridge=br-ctrplane,mac=52:54:00:a4:db:5f
+  
   
   sudo virsh --connect qemu:///system start bootstrap.ocp.pxe.com
   Domain 'bootstrap.ocp.pxe.com' started
