@@ -24,7 +24,6 @@
 * Only copy/ get "pull secret" as required images/ packages will be in a later step.
 ## Jumphost Bringup
 ```
-
 wget 'https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.4.2105-20210603.0.x86_64.qcow2'
 sudo qemu-img create -b /var/lib/libvirt/images/CentOS-8-GenericCloud-8.4.2105-20210603.0.x86_64.qcow2  -f qcow2 -F qcow2 /var/lib/libvirt/images/ocp_pxe_jumphost.qcow2 200G
 
@@ -120,12 +119,10 @@ virt-install --name ocp_pxe_jumphost \
   ``` 
   ## Download Installer and CLI Packages
   * Download openshift-installer and openhift-client (CLI) packages from the [URL](https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/) as per required version. 
+
   ```
   curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-install-linux.tar.gz --output openshift-install-linux.tar.gz
   curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz --output openshift-client-linux.tar.gz
-  ```
-  chmod +x download_ocp_images.sh
-  ./download_ocp_images.sh
   ```
   * Get this Git Repo
   ```
