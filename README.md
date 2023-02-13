@@ -79,7 +79,7 @@ cloud-localds -v  ocp_pxe_jumphost_cloud_init.img ocp_pxe_jumphost_cloud_init.cf
 
 
 virt-install --name ocp_pxe_jumphost \
-  --virt-type kvm --memory 8192  --vcpus 8 \
+  --virt-type kvm --memory 16384  --vcpus 8 \
   --boot hd,menu=on \
   --disk path=ocp_pxe_jumphost_cloud_init.img,device=cdrom \
   --disk path=/var/lib/libvirt/images/ocp_pxe_jumphost.qcow2,device=disk \
@@ -103,7 +103,7 @@ virt-install --name ocp_pxe_jumphost \
   ./jmphost_setup.sh
   ```
 
-  ## Download Openshift Images 
+  ### Download Openshift Images 
   * Download following images from the [ULR](https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/) as per required version. 
   * kernel: rhcos-<version>-live-kernel-<architecture>
   * initramfs: rhcos-<version>-live-initramfs.<architecture>.img
@@ -117,7 +117,7 @@ virt-install --name ocp_pxe_jumphost \
   curl https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/latest/rhcos-4.12.2-x86_64-metal.x86_64.raw.gz --output rhcos-4.12.2-x86_64-metal.x86_64.raw.gz
   EOF
   ``` 
-  ## Download Installer and CLI Packages
+  ### Download Installer and CLI Packages
   * Download openshift-installer and openhift-client (CLI) packages from the [URL](https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/) as per required version. 
 
   ```
@@ -153,8 +153,7 @@ virt-install --name ocp_pxe_jumphost \
   sudo systemctl restart NetworkManager
   ```
 
-  * Preparing Web Server 
-  
+  ### Preparing Web Server 
   ```
   sudo mkdir -p /var/www/html/rhcos
   sudo mkdir -p /var/www/html/ignition
@@ -167,8 +166,8 @@ virt-install --name ocp_pxe_jumphost \
   * Move kernel and initrmfs images, downloaded in one of above step to /var/lib/tftpboot/
   ```
   sudo mkdir -p /var/lib/tftpboot/rhcos
-  sudo mv ~/rhcos-live-initramfs.x86_64.img /var/lib/tftpboot/rhcos/initramfs.img
-  sudo mv ~/rhcos-live-kernel-x86_64 /var/lib/tftpboot/rhcos/kernel
+  sudo mv ~/rhcos-installer-initramfs.x86_64.img /var/lib/tftpboot/rhcos/initramfs.img
+  sudo mv ~/rhcos-installer-kernel-x86_64 /var/lib/tftpboot/rhcos/kernel
   sudo restorecon -RFv  /var/lib/tftpboot/rhcos
   ```
   * Make changes in "default" file available with this repo as per your environment. 
@@ -183,13 +182,11 @@ virt-install --name ocp_pxe_jumphost \
   ```
   ### Prepare haproxy Server
   * Change ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg as per your enviornment 
-
   ```
   vim ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg
   sudo cp ~/RHCOP_JNPR_CN2_UPI/haproxy.cfg /etc/haproxy/
   ```
   ### Adding Firewall Rules and Setting SELinux Permissions
-
   ```
   sudo firewall-cmd --add-port=8080/tcp --permanent
   sudo firewall-cmd --add-port={6443,22623}/tcp --permanent
@@ -204,11 +201,10 @@ virt-install --name ocp_pxe_jumphost \
   ```
   sudo systemctl enable httpd --now
   sudo systemctl enable  tftp.service --now
-  sudo cp -rvf /usr/share/syslinux/* /var/lib/tftpboot
   sudo systemctl enable named --now 
   sudo systemctl enable  haproxy --now
   ```
-  ### Preparing Openshift Installation Files 
+  ## Preparing  Installation Files 
   * Make sure pull-secret file is copied in Jumphost ~/ directory
   ```
   sudo tar xvf openshift-install-linux.tar.gz
@@ -219,12 +215,12 @@ virt-install --name ocp_pxe_jumphost \
   oc version
   kubectl version --client
   ssh-keygen 
-  mkdir ~/ocp-install
   ```
-  * Prepare base install file , change IP settings if required (or leave it as it is)
+  ### Preparing Openshift install-config.yaml
+  * Change IP settings if required (or leave it as it is)
 
 ```
-cat <<EOF > ocp-install-base-config.yaml
+cat <<EOF > install-config.yaml
 apiVersion: v1
 baseDomain: pxe.com
 compute:
@@ -241,7 +237,7 @@ networking:
   clusterNetworks:
   - cidr: 10.10.0.0/16
     hostPrefix: 24
-  networkType: OpenShiftSDN
+  networkType: Contrail
   serviceNetwork:
   - 172.172.0.0/16
 platform:
@@ -250,26 +246,72 @@ pullSecret: '$(< ~/pull-secret)'
 sshKey: '$(< ~/.ssh/id_rsa.pub)'
 EOF
 ```
-  * Preparing OCP  manifests files 
+  ### Preparing Login Credentials to access  CN2 Container Images Registry
+  * Get login credentials for enterprise-hub.juniper.net [Reference](https://www.juniper.net/documentation/us/en/software/cn-cloud-native22/cn-cloud-native-k8s-install-and-lcm/topics/task/cn-cloud-native-k8s-configure-secrets.html)
+  ```
+  sudo yum install -y yum-utils
+  sudo yum-config-manager     --add-repo     https://download.docker.com/linux/centos/docker-ce.repo
+  sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+  docker login enterprise-hub.juniper.net
+  Username: username 
+  Password: token to access enterprise-hub.juniper.net
+  WARNING! Your password will be stored unencrypted in /home/contrail/.docker/config.json.
+  Configure a credential helper to remove this warning. See
+  https://docs.docker.com/engine/reference/commandline/login/#credentials-store
+  Login Succeeded
+
+  cat ~/.docker/config.json
+  ENCODED_CREDS=$(base64 -w 0 ~/.docker/config.json)
+  cd cn2_22_4/contrail-manifests-openshift/manifests/
+  echo $ENCODED_CREDS
+  cat ~/.docker/config.json
+  ENCODED_CREDS=$(base64 -w 0 ~/.docker/config.json)
+  echo $ENCODED_CREDS
+  ```
+  ### Prepare CN2 Manifests files
+  * Download CN2 manifests from Juniper Support portal [Reference](https://support.juniper.net/support/downloads)
+  * Reference link to prepare [CN2 manifests](https://www.juniper.net/documentation/us/en/software/cn-cloud-native22/cn-cloud-native-ocp-install-and-lcm/topics/topic-map/cn-cloud-native-ocp-manifests-and-tools.html)
+  ```
+  mkdir ~/cn2_22_4
+  mv ~/contrail-manifests-openshift-22.4.0.284.tgz ~/cn2_22_4
+  cd ~/cn2_22_4
+  tar xvf contrail-manifests-openshift-22.4.0.284.tgz
+  cd contrail-manifests-openshift/
+  mkdir manifests
+  cp *yaml manifests
+  cp cert-manager-1.8/*.yaml manifests/
+  sed -i s/'<base64-encoded-credential>'/$ENCODED_CREDS/ auth-registry/*.yaml
+  In 99-disable-offload-worker.yaml change interface name as per your setup 
+  ```
+  * Removing DPDK manifests files if DPDK vROuter is not required 
+  ```
+  rm manifests/050-dpdk-machineconfigpool.yaml manifests/112-vrouter-dpdk-nodes-cr.yaml
+  rm manifests/051-worker-vfio-pci.yaml manifests/052-kargs-1g-hugepages.yaml
+  In 99-disable-offload-worker.yaml change interface name as per your setup 
+  ```
+  ### Preparing OCP  manifests files 
   * File name in installation directory must be [install-config.yaml](https://access.redhat.com/solutions/4514661)
   ```
   mkdir ~/ocp-install
-  cp ~/ocp-install-base-config.yaml ~/ocp-install/install-config.yaml
+  cp ~/install-config.yaml ~/ocp-install/install-config.yaml
   cd ocp-install/
-  openshift-install create manifests
-  INFO Consuming Install Config from target directory
-  WARNING Making control-plane schedulable by setting MastersSchedulable to true for Scheduler cluster settings
+  openshift-install create manifests --log-level=debug
   INFO Manifests created in: manifests and openshift
   [contrail@bastion ocp-install]$ ls
   manifests  openshift
   ```
+  * Copy CN2 manifests prepared in above step into ~/ocp-install/manifests
+  ```
+   cp ~/cn2_22_4/contrail-manifests-openshift/manifests/*yaml ~/ocp-install/manifests
+  ```
   * Disable POD Sechduling on Master nodes
   ```
+  cd ~/ocp-install
   sed -i 's/true/false/' manifests/cluster-scheduler-02-config.yml
   ```
   * Prepare ignition files 
   ```
-  [contrail@bastion ocp-install]$ openshift-install create ignition-configs
+  [contrail@bastion ocp-install]$ openshift-install create ignition-configs --log-level=debug 
   INFO Consuming Worker Machines from target directory
   INFO Consuming Openshift Manifests from target directory
   INFO Consuming Common Manifests from target directory
@@ -282,7 +324,7 @@ EOF
   * Move ignition files to webserver directory 
   ```
   sudo mkdir -p /var/www/html/ignition
-  sudo cp -v *.ign /var/www/html/ignition
+  sudo mv -v *.ign /var/www/html/ignition
   'bootstrap.ign' -> '/var/www/html/ignition/bootstrap.ign'
   'master.ign' -> '/var/www/html/ignition/master.ign'
   'worker.ign' -> '/var/www/html/ignition/worker.ign'
@@ -320,25 +362,25 @@ EOF
   * Verify Name Server 
 
   ```
-  dig +noall +answer 192.168.24.13 api.ocp.pxe.com
+  dig +noall +answer @127.0.0.1 api.ocp.pxe.com
   api.ocp.pxe.com.	604800	IN	A	192.168.24.13
 
-  dig +noall +answer 192.168.24.13 api-int.ocp.pxe.com
+  dig +noall +answer @127.0.0.1 api-int.ocp.pxe.com
   api-int.ocp.pxe.com.	604800	IN	A	192.168.24.13
 
-  dig +noall +answer 192.168.24.13  random.apps.ocp.pxe.com
+  dig +noall +answer @127.0.0.1  random.apps.ocp.pxe.com
   random.apps.ocp.pxe.com. 604800	IN	A	192.168.24.13
   
-  dig +noall +answer 192.168.24.13  console-openshift-console.apps.ocp.pxe.com
+  dig +noall +answer @127.0.0.1  console-openshift-console.apps.ocp.pxe.com
   console-openshift-console.apps.ocp.pxe.com. 604800 IN A	192.168.24.13 
 
-  dig +noall +answer 192.168.24.13 bootstrap.ocp.pxe.com
+  dig +noall +answer @127.0.0.1 bootstrap.ocp.pxe.com
   bootstrap.ocp.pxe.com.	604800	IN	A	192.168.24.200
 
-  dig +noall +answer 192.168.24.13 -x 192.168.24.200
+  dig +noall +answer @127.0.0.1 -x 192.168.24.200
   200.24.168.192.in-addr.arpa. 604800 IN	PTR	bootstrap.ocp.pxe.com.
 
-  dig +noall +answer 192.168.24.13 -x 192.168.24.13
+  dig +noall +answer @127.0.0.1 -x 192.168.24.13
   13.24.168.192.in-addr.arpa. 604800 IN	PTR	api.ocp.pxe.com.
   13.24.168.192.in-addr.arpa. 604800 IN	PTR	api-int.ocp.pxe.com.
   ```
@@ -384,7 +426,7 @@ EOF
   Accept-Ranges: bytes
   Content-Length: 1103563776
 
-  curl -I http://192.168.24.13:8080/rhcos/coreos
+  curl -I http://192.168.24.13:8080/rhcos/rhcos-4.12.2-x86_64-metal.x86_64.raw.gz
   HTTP/1.1 200 OK
   Date: Sat, 11 Feb 2023 19:14:39 GMT
   Server: Apache/2.4.37 (centos)
@@ -418,14 +460,14 @@ EOF
   :1 
   ```
   * PXE boot and Select "Bootstrap" from the PXE Boot Menue 
-  ![BootStrap PXE](./images/pxe-bios-boot.jpeg)
+  ![BootStrap PXE](./images/pxe-bios-boot.png)
   * Once kernel and initramfs images are downloaded from tftp server , boot server will reboot.
   * During reboot , from PXE boot menu select "Local Boot"
 
   * Repeat same steps for Master1..3 VMs
 
   ```
-  sudo virt-install -n master01.ocp4.example.com \
+  sudo virt-install -n master01.ocp.example.com \
    --description "master01 Machine for Openshift 4 Cluster" \
    --ram=16384 \
    --vcpus=8 \
@@ -437,7 +479,7 @@ EOF
    --boot network,hd,menu=on \
    --network bridge=br-ctrplane,mac=52:54:00:8b:a1:17
 
-  sudo virt-install -n master02.ocp4.example.com  \
+  sudo virt-install -n master02.ocp.example.com  \
    --description "Master02 Machine for Openshift 4 Cluster" \
    --ram=16384 \
    --vcpus=8 \
@@ -448,6 +490,18 @@ EOF
    --graphics vnc,listen=0.0.0.0 --noautoconsole \
    --boot network,hd,menu=on \
    --network bridge=br-ctrplane,mac=52:54:00:ea:8b:9d
+
+  sudo virt-install -n master03.ocp.example.com  \
+  --description "Master03 Machine for Openshift 4 Cluster" \
+  --ram=16384 \
+  --vcpus=8 \
+  --os-type=Linux \
+  --os-variant=rhel8.0 \
+   --noreboot \
+  --disk pool=images,bus=virtio,size=100 \
+  --graphics vnc,listen=0.0.0.0 --noautoconsole \
+  --boot network,hd,menu=on \
+  --network bridge=br-ctrplane,mac=52:54:00:f8:87:c7
   ```
   * My worker nodes are physical servers (Dell R720).
   * PXE boot is already enabled on Control Plane NIC and underlay network ports are  configured in access mode.
@@ -481,6 +535,10 @@ EOF
   time="2023-02-09T02:45:04Z" level=debug msg="Bootstrap Complete: 14m7s"
   time="2023-02-09T02:45:04Z" level=info msg="Time elapsed: 14m7s"
   ``` 
+  * Monitoring podman logs on Bootstrap node
+  ```
+  for pod in $(sudo podman ps -a -q); do sudo podman logs $pod; done
+  ```
   * Monitoring Bootstraping process from Bootstrap node
 
   ```
@@ -488,6 +546,7 @@ EOF
   Mon 06 00:01:56 bootstrap.ocp.lab.com bootkube.sh[12661]: bootkube.service complete
   Mon 06 00:01:56 bootstrap.ocp.lab.com systemd[1]: bootkube.service: Succeeded.
   ```
+  
   ### Post Deployment Operations 
   
   * Setup oc and kubectl clients
